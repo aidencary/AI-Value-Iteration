@@ -201,13 +201,12 @@ class Agent:
         if mdp.is_terminal[state]:
           continue
 
-        # -------------------------------------- #
-        # Value iteration pseudocode (applied here):
+
+        # Value iteration pseudocode:
         #   For each state s (non-terminal):
         #       U'(s) = max_a [ sum_{s'} P(s'|s,a) * ( R(s,a,s') + gamma * U(s') ) ]
         #   delta = max_s |U'(s) - U(s)|
         #   U <- U'
-        #
         # We use U_old (the previous iteration's utilities) when computing
         # the right-hand side to ensure synchronous updates.
 
@@ -217,19 +216,20 @@ class Agent:
         for action in mdp.actions:
           # Use U_old here to compute expected value following the Bellman update
           
-          # debug
+          # Debug (uncomment to enable and comment the next line)
           # q_val = self.Q(state, action, gamma, mdp, U_old, debug=True)
-
           q_val = self.Q(state, action, gamma, mdp, U_old, debug=False)
+          # Check if the action yields a better Q value
           if q_val > best_q:
             best_q = q_val
             best_action = action
 
         # Update the utility estimate for this state to the maximal Q value.
         U_current[state] = best_q
+        '''
         if i % 50 == 0 or i <= 5:  # print a few debugging lines early and periodically
           print(f"iter={i} state={state} best_action={best_action} U_old={U_old[state]} U_new={U_current[state]}")
-
+        '''
 
         # Calculate |U_current - U_old| and update delta if needed.
         utility_change = abs(U_current[state] - U_old[state])
