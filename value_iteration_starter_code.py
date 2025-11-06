@@ -140,34 +140,32 @@ class Agent:
 
   def Q(self, state, action, gamma, mdp, U, debug=False):
     """
-    Code that I added:
-    Compute Q(s,a) = sum_{s'} P(s'|s,a) * [ R(s,a,s') + gamma * U[s'] ]
-
-    Pseudocode from textbook (value-iteration / Bellman for Q):
-      Q(s,a) = sum_{s'} P(s'|s,a) * ( R(s,a,s') + gamma * U[s'] )
-
-    Added debug prints when debug=True to show per-transition contributions.
-
+    function Q-VALUE(mdp, s, a, U) returns a utility value
     """
 
     q = 0.0
 
     # For each possible next state s', accumulate expected contribution.
-    # Pseudocode applied here: for each s' in successors(s,a):
-    #     q += P(s'|s,a) * ( R(s,a,s') + gamma * U[s'] )
     for next_state, prob in mdp.transition_model[(state, action)].items():
+      # R(s, a, s')
       # Get reward for this transition
       reward = mdp.reward(state, action, next_state)
+
+      # P(s'|s,a) * [ R(s,a,s') + gamma * U[s'] ]
       # Contribution to Q from this transition
       contrib = prob * (reward + gamma * U[next_state])
+
       # Debug print per-transition contribution
       if debug:
         print(f"Q debug: s={state} a={action} s'={next_state} P={prob} R={reward} U[s']={U[next_state]} contrib={contrib}")
+      
+      # Accumulate into Q value
       q += contrib
+
     # debug final Q value
     if debug:
       print(f"Q result: s={state} a={action} Q={q}")
-
+      
     return q
 
 
@@ -177,6 +175,9 @@ class Agent:
     """
     assert 0 <= gamma < 1, 'gamma must be in [0, 1) for convergence to work in this MDP.'
 
+    # Print parameters for reproducibility / reporting
+    print(f"value_iteration parameters: gamma={gamma}, epsilon={epsilon}, iter_limit={iter_limit}")
+
     # Initialize utility function with U[state] = 0 for all states.
     U_current = {state: 0.0 for state in mdp.states}
 
@@ -185,32 +186,26 @@ class Agent:
 
     # The while-loop will keep running until converged becomes True, or i
     # becomes greater than iter_limit.
+    # Repeat until convergence:
     converged = False
     while not converged:
 
       # We will use delta to keep up with the maximum change in a state's utility estimate
+      # delta <- 0
       delta = 0
 
       i += 1
-
+      # U_old <- U_current (make a copy)
       U_old = copy.deepcopy(U_current)
 
+      # For each state s in S do:
       for state in mdp.states:
 
         # If this is a terminal state, we can skip it
         if mdp.is_terminal[state]:
           continue
 
-
-        # Value iteration pseudocode:
-        #   For each state s (non-terminal):
-        #       U'(s) = max_a [ sum_{s'} P(s'|s,a) * ( R(s,a,s') + gamma * U(s') ) ]
-        #   delta = max_s |U'(s) - U(s)|
-        #   U <- U'
-        # We use U_old (the previous iteration's utilities) when computing
-        # the right-hand side to ensure synchronous updates.
-
-        # Compute the best action-value over available actions.
+        # U'[s] <- max_{a in A} Q-VALUE(mdp, s, a, U)
         best_q = float('-inf')
         best_action = None
         for action in mdp.actions:
@@ -218,13 +213,16 @@ class Agent:
           
           # Debug (uncomment to enable and comment the next line)
           # q_val = self.Q(state, action, gamma, mdp, U_old, debug=True)
+          # Q(s, a) = sum_{s'} P(s'|s,a) * [ R(s,a,s') + gamma * U[s'] ]
           q_val = self.Q(state, action, gamma, mdp, U_old, debug=False)
-          # Check if the action yields a better Q value
+          
+          # This is the 'max_a' part of the update
           if q_val > best_q:
             best_q = q_val
             best_action = action
 
         # Update the utility estimate for this state to the maximal Q value.
+        # U'[s] <- max_q (best_q)
         U_current[state] = best_q
         '''
         if i % 50 == 0 or i <= 5:  # print a few debugging lines early and periodically
@@ -249,7 +247,7 @@ class Agent:
 
     # From the converged utilities, calculate optimal policy.
     # policy = {'Cool': 'optimal_action', 'Warm': 'optimal_action'}
-    # return policy
+    # return U_current
     if converged:
       self.calculate_bellman_solutions(U_current, mdp, gamma)
 
