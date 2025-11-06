@@ -138,17 +138,35 @@ class Agent:
       self.solution[state]['utility'] = max_q_value
 
 
-  def Q(self, state, action, gamma, mdp, U):
+  def Q(self, state, action, gamma, mdp, U, debug=False):
     """
-    # Fill this function in for the next assignment.
-    """
-    q = 0
+    Code that I added:
+    Compute Q(s,a) = sum_{s'} P(s'|s,a) * [ R(s,a,s') + gamma * U[s'] ]
 
+    Pseudocode from textbook (value-iteration / Bellman for Q):
+      Q(s,a) = sum_{s'} P(s'|s,a) * ( R(s,a,s') + gamma * U[s'] )
+
+    Added debug prints when debug=True to show per-transition contributions.
+
+    """
+
+    q = 0.0
+
+    # For each possible next state s', accumulate expected contribution.
+    # Pseudocode applied here: for each s' in successors(s,a):
+    #     q += P(s'|s,a) * ( R(s,a,s') + gamma * U[s'] )
     for next_state, prob in mdp.transition_model[(state, action)].items():
-
-      # -------------------------------------- #
-      # Your code here                         #
-      # -------------------------------------- #
+      # Get reward for this transition
+      reward = mdp.reward(state, action, next_state)
+      # Contribution to Q from this transition
+      contrib = prob * (reward + gamma * U[next_state])
+      # Debug print per-transition contribution
+      if debug:
+        print(f"Q debug: s={state} a={action} s'={next_state} P={prob} R={reward} U[s']={U[next_state]} contrib={contrib}")
+      q += contrib
+    # debug final Q value
+    if debug:
+      print(f"Q result: s={state} a={action} Q={q}")
 
     return q
 
@@ -184,8 +202,33 @@ class Agent:
           continue
 
         # -------------------------------------- #
-        # Your code here                         #
-        # -------------------------------------- #
+        # Value iteration pseudocode (applied here):
+        #   For each state s (non-terminal):
+        #       U'(s) = max_a [ sum_{s'} P(s'|s,a) * ( R(s,a,s') + gamma * U(s') ) ]
+        #   delta = max_s |U'(s) - U(s)|
+        #   U <- U'
+        #
+        # We use U_old (the previous iteration's utilities) when computing
+        # the right-hand side to ensure synchronous updates.
+
+        # Compute the best action-value over available actions.
+        best_q = float('-inf')
+        best_action = None
+        for action in mdp.actions:
+          # Use U_old here to compute expected value following the Bellman update
+          
+          # debug
+          # q_val = self.Q(state, action, gamma, mdp, U_old, debug=True)
+
+          q_val = self.Q(state, action, gamma, mdp, U_old, debug=False)
+          if q_val > best_q:
+            best_q = q_val
+            best_action = action
+
+        # Update the utility estimate for this state to the maximal Q value.
+        U_current[state] = best_q
+        if i % 50 == 0 or i <= 5:  # print a few debugging lines early and periodically
+          print(f"iter={i} state={state} best_action={best_action} U_old={U_old[state]} U_new={U_current[state]}")
 
 
         # Calculate |U_current - U_old| and update delta if needed.
